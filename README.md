@@ -96,26 +96,28 @@ extra-lib-dirs:
 
 ## Cross compilation
 
-bindings-DSL does not work with `hsc2hs --cross-compile` (see
-[#38](https://github.com/rethab/bindings-dsl/issues/38)). Every construct
-(`#strict_import`, `#starttype`, `#ccall`, ...) is a custom hsc2hs construct that
-emits Haskell while the generated C program runs. Cross mode never runs that
-program: it recognises only a fixed set of built-in directives and rejects
-everything else with
+`bindings.dsl.h` supports hsc2hs assembly cross mode. When hsc2hs is invoked
+with `--cross-compile` or `--cross-safe`, it defines `HSC2HS_ASM` and compiles
+the probe with one `cc -S -O2` pass. It does not link or run a target binary.
+The header then routes `printf`, `putchar`, and `fputs` through `hsc_printf`,
+`hsc_putchar`, and `hsc_fputs`, and builds identifiers with `hsc_mangle` instead
+of the runtime `bc_word` / `bc_glue` loops. `bc_typemarkup` sends the type
+spelling to `hsc_typemarkup`, and the cross decoder rewrites `<ident>` to
+`C'ident`, including `Ptr <gchar>` from `#field` and `#ccall`. `hsc_stoptype` asks the compiler to
+unroll its field loops so those identifiers are compile-time constants.
 
-```
-directive strict_import cannot be handled in cross-compilation mode
-```
+Values that are not compile-time constants still need a real run of the probe:
 
-`--via-asm` does not help, it only changes how cross mode extracts constants. No
-change to `bindings.dsl.h` can lift this; it needs hsc2hs to support custom
-constructs when cross compiling.
+* `--cross-runner=CMD`, plus repeatable `--cross-runner-arg=ARG`, compiles and
+  links the probe as usual and executes it through `CMD` (for example
+  `qemu-aarch64` or `wine64`). This overrides `-x`.
+* `--no-cross-compile` overrides an earlier `-x` or `--cross-compile` when the
+  target binary can already run on the build host (`binfmt_misc`, Rosetta 2).
 
-Cross compiling still works if you can execute target binaries, e.g. with
-qemu-user plus `binfmt_misc`, or wine for Windows targets. Cabal gets in the way
-here: it passes `-x` to hsc2hs whenever the host platform differs from the build
-platform, and hsc2hs has no flag to undo that. Point Cabal at a wrapper that
-drops the flag and lets the normal compile-and-run path proceed under emulation:
+Cabal passes `-x` whenever the host platform differs from the build platform.
+`--no-cross-compile` or `--cross-runner` belong after that `-x`. Older hsc2hs
+without `HSC2HS_ASM` still needs a wrapper that drops `-x` and runs the probe
+under emulation:
 
 ```sh
 #!/bin/sh
