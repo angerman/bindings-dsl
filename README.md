@@ -99,9 +99,9 @@ extra-lib-dirs:
 `bindings.dsl.h` supports hsc2hs assembly cross mode. When hsc2hs is invoked
 with `--cross-compile` or `--cross-safe`, it defines `HSC2HS_ASM` and compiles
 the probe with one `cc -S -O2` pass. It does not link or run a target binary.
-The header then routes `printf`, `putchar`, and `fputs` through `hsc_printf`,
-`hsc_putchar`, and `hsc_fputs`, and builds identifiers with `hsc_mangle` instead
-of the runtime `bc_word` / `bc_glue` loops. `bc_typemarkup` sends the type
+hsc2hs turns `printf`, `putchar`, and `fputs` into assembly records. The header
+builds identifiers with `hsc_mangle` instead of the runtime `bc_word` / `bc_glue`
+loops. `bc_typemarkup` sends the type
 spelling to `hsc_typemarkup`, and the cross decoder rewrites `<ident>` to
 `C'ident`, including `Ptr <gchar>` from `#field` and `#ccall`. `hsc_stoptype` asks the compiler to
 unroll its field loops so those identifiers are compile-time constants.
